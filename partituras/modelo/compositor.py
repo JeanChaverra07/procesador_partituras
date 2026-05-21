@@ -188,3 +188,108 @@ class ReglaTransposicion(ReglaTransformacion):
                 resultado.append(nuevo)
 
         return " ".join(resultado)
+
+class ReglaFrecuencia(ReglaTransformacion):
+
+    def partitura_valida(self, partitura: str) -> bool:
+
+        errores = []
+
+        numeros = self.encontrar_numeros_partitura(partitura)
+
+        if numeros:
+            mensaje = ", ".join(
+                [f"posición {i}: '{c}'" for i, c in numeros]
+            )
+            errores.append(
+                ContieneNumero(
+                    f"La partitura contiene números -> {mensaje}"
+                )
+            )
+
+        invalidos_ascii = self.encontrar_caracteres_invalidos(partitura)
+
+        if invalidos_ascii:
+            mensaje = ", ".join(
+                [f"posición {i}: '{c}'" for i, c in invalidos_ascii]
+            )
+            errores.append(
+                ContieneCaracterInvalido(
+                    f"Caracteres no ASCII -> {mensaje}"
+                )
+            )
+
+        if partitura != partitura.strip():
+            errores.append(
+                EspacioBordes(
+                    "La partitura no puede tener espacios al inicio o final"
+                )
+            )
+
+        if "  " in partitura:
+            errores.append(
+                EspacioMultiple(
+                    "La partitura no puede tener múltiples espacios consecutivos"
+                )
+            )
+
+        partitura = partitura.lower()
+
+        tokens = partitura.split(" ")
+
+        invalidos = [
+            (i, token)
+            for i, token in enumerate(tokens)
+            if token not in NOTAS
+        ]
+
+        if invalidos:
+            mensaje = ", ".join(
+                [f"token {i}: '{t}'" for i, t in invalidos]
+            )
+            errores.append(
+                ContieneCaracterInvalido(
+                    f"Notas inválidas -> {mensaje}"
+                )
+            )
+
+        if errores:
+            raise ExceptionGroup(
+                "Errores de validación",
+                errores
+            )
+
+        return True
+
+    def transformar(self, partitura: str) -> str:
+
+        self.partitura_valida(partitura)
+
+        partitura = partitura.lower()
+
+        return " ".join(
+            [
+                str(FRECUENCIAS[nota] * self.token)
+                for nota in partitura.split(" ")
+            ]
+        )
+
+    def revertir(self, partitura: str) -> str:
+
+        valores = [float(x) for x in partitura.split()]
+
+        resultado = []
+
+        for valor in valores:
+
+            frecuencia = valor / self.token
+
+            nota = next(
+                nota
+                for nota, freq in FRECUENCIAS.items()
+                if freq == frecuencia
+            )
+
+            resultado.append(nota)
+
+        return " ".join(resultado)
